@@ -38,7 +38,7 @@
 #include <io.h>
 #include <Shlobj.h>
 #include <Sddl.h>
-#include <process.h>
+/* #include <process.h> */
 #include "misc_internal.h"
 #include "inc\utf.h"
 

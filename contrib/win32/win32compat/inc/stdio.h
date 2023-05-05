@@ -19,4 +19,4 @@ FILE* w32_fdopen(int fd, const char *mode);
 #define fdopen(a,b)	w32_fdopen((a), (b))
 
 int w32_rename(const char *old_name, const char *new_name);
-#define rename w32_rename
+/* #define rename w32_rename */

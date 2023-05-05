@@ -32,7 +32,7 @@
 #include <Sddl.h>
 #include <Aclapi.h>
 #include <lm.h>
-#include <stdio.h> 
+/* #include <stdio.h> */
 
 #include "inc\pwd.h"
 #include "sshfileperm.h"
