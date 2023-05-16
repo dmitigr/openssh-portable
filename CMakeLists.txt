@@ -50,39 +50,41 @@ enable_language(C)
 # Dependencies
 # ------------------------------------------------------------------------------
 
-function(get_dependency name version extract_to_subdir)
-  set(dep_root "${CMAKE_SOURCE_DIR}/contrib/win32/openssh")
+if(WIN32)
+  function(get_dependency name version extract_to_subdir)
+    set(dep_root "${CMAKE_SOURCE_DIR}/contrib/win32/openssh")
 
-  message(CHECK_START "Downloading and reparing ${name} version ${version}")
+    message(CHECK_START "Downloading and preparing ${name} version ${version}")
 
-  file(DOWNLOAD
-    "https://github.com/PowerShell/${name}/releases/download/${version}/${name}.zip"
-    "${CMAKE_BINARY_DIR}/${name}.zip"
-    STATUS dep_download_status
-  )
-  list(GET dep_download_status 0 dep_download_status_err)
-  if(NOT dep_download_status_err EQUAL 0)
-    list(GET dep_download_status 1 dep_download_status_msg)
-    message(CHECK_FAIL "${dep_download_status_msg}")
-  endif()
+    file(DOWNLOAD
+      "https://github.com/PowerShell/${name}/releases/download/${version}/${name}.zip"
+      "${CMAKE_BINARY_DIR}/${name}.zip"
+      STATUS dep_download_status
+    )
+    list(GET dep_download_status 0 dep_download_status_err)
+    if(NOT dep_download_status_err EQUAL 0)
+      list(GET dep_download_status 1 dep_download_status_msg)
+      message(CHECK_FAIL "${dep_download_status_msg}")
+    endif()
 
-  if(extract_to_subdir)
-    set(dep_destination "${dep_root}/${name}")
-  else()
-    set(dep_destination "${dep_root}")
-  endif()
-  file(ARCHIVE_EXTRACT
-    INPUT "${CMAKE_BINARY_DIR}/${name}.zip"
-    DESTINATION "${dep_destination}")
+    if(extract_to_subdir)
+      set(dep_destination "${dep_root}/${name}")
+    else()
+      set(dep_destination "${dep_root}")
+    endif()
+    file(ARCHIVE_EXTRACT
+      INPUT "${CMAKE_BINARY_DIR}/${name}.zip"
+      DESTINATION "${dep_destination}")
 
-  file(REMOVE "${CMAKE_BINARY_DIR}/${name}.zip")
+    file(REMOVE "${CMAKE_BINARY_DIR}/${name}.zip")
 
-  message(CHECK_PASS "done")
-endfunction()
+    message(CHECK_PASS "done")
+  endfunction()
 
-get_dependency("libfido2" "1.13.0" On)
-get_dependency("LibreSSL" "V3.7.2.0" Off)
-get_dependency("zlib" "V1.2.13" Off)
+  get_dependency("libfido2" "1.13.0" On)
+  get_dependency("LibreSSL" "V3.7.2.0" Off)
+  get_dependency("zlib" "V1.2.13" Off)
+endif()
 
 # ------------------------------------------------------------------------------
 # Sources
