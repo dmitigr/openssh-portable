@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.16)
-cmake_policy(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
+cmake_policy(VERSION 3.22)
 project(openssh_portable)
 
 if (NOT (UNIX OR WIN32))
@@ -45,6 +45,44 @@ enable_language(C)
 # enable_language(CXX)
 # set(CMAKE_CXX_STANDARD 17)
 # set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ------------------------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------------------------
+
+function(get_dependency name version extract_to_subdir)
+  set(dep_root "${CMAKE_SOURCE_DIR}/contrib/win32/openssh")
+
+  message(CHECK_START "Downloading and reparing ${name} version ${version}")
+
+  file(DOWNLOAD
+    "https://github.com/PowerShell/${name}/releases/download/${version}/${name}.zip"
+    "${CMAKE_BINARY_DIR}/${name}.zip"
+    STATUS dep_download_status
+  )
+  list(GET dep_download_status 0 dep_download_status_err)
+  if(NOT dep_download_status_err EQUAL 0)
+    list(GET dep_download_status 1 dep_download_status_msg)
+    message(CHECK_FAIL "${dep_download_status_msg}")
+  endif()
+
+  if(extract_to_subdir)
+    set(dep_destination "${dep_root}/${name}")
+  else()
+    set(dep_destination "${dep_root}")
+  endif()
+  file(ARCHIVE_EXTRACT
+    INPUT "${CMAKE_BINARY_DIR}/${name}.zip"
+    DESTINATION "${dep_destination}")
+
+  file(REMOVE "${CMAKE_BINARY_DIR}/${name}.zip")
+
+  message(CHECK_PASS "done")
+endfunction()
+
+get_dependency("libfido2" "1.13.0" On)
+get_dependency("LibreSSL" "V3.7.2.0" Off)
+get_dependency("zlib" "V1.2.13" Off)
 
 # ------------------------------------------------------------------------------
 # Sources
@@ -679,7 +717,7 @@ if(WIN32)
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/sdk
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/sdk
   )
 endif()
 
@@ -717,7 +755,7 @@ if(WIN32)
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/sdk
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/sdk
   )
 endif()
 
@@ -754,7 +792,7 @@ if(WIN32)
     openssh_openbsd_compat
     openssh_posix_compat
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/bin/x64/zlib.lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/bin/x64/zlib.lib
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/fido2.lib
     # ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/cbor.lib
     Ws2_32.lib
@@ -1183,7 +1221,7 @@ if(WIN32)
     openssh_openbsd_compat
     openssh_posix_compat
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/bin/x64/zlib.lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/bin/x64/zlib.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
@@ -1395,7 +1433,7 @@ target_include_directories(sshd PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/openbsd-compat)
 if(WIN32)
   target_include_directories(sshd PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/sdk
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/sdk
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
@@ -1409,7 +1447,7 @@ elseif(WIN32)
   target_link_libraries(sshd
     Ws2_32.lib
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/ZLib/bin/x64/zlib.lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/bin/x64/zlib.lib
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/fido2.lib
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/cbor.lib
   )
