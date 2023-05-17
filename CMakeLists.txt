@@ -49,13 +49,18 @@ enable_language(C)
 
 if(WIN32)
   function(get_dependency name version extract_to_subdir)
+    set(dep_file "${CMAKE_CURRENT_BINARY_DIR}/${name}.zip")
     set(dep_root "${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh")
+
+    if(EXISTS "${dep_file}")
+      return()
+    endif()
 
     message(CHECK_START "Downloading and preparing ${name} version ${version}")
 
     file(DOWNLOAD
       "https://github.com/PowerShell/${name}/releases/download/${version}/${name}.zip"
-      "${CMAKE_CURRENT_BINARY_DIR}/${name}.zip"
+      "${dep_file}"
       STATUS dep_download_status
       )
     list(GET dep_download_status 0 dep_download_status_err)
@@ -70,10 +75,10 @@ if(WIN32)
       set(dep_destination "${dep_root}")
     endif()
     file(ARCHIVE_EXTRACT
-      INPUT "${CMAKE_CURRENT_BINARY_DIR}/${name}.zip"
+      INPUT "${dep_file}"
       DESTINATION "${dep_destination}")
 
-    file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/${name}.zip")
+    # file(REMOVE "${dep_file}")
 
     message(CHECK_PASS "done")
   endfunction()
