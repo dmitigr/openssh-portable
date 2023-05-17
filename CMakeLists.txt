@@ -208,8 +208,6 @@ set(openssh_openbsd_compat_src
   openbsd-compat/getcwd.c
   openbsd-compat/getgrouplist.c
   openbsd-compat/getopt_long.c
-  # openbsd-compat/getrrsetbyname-ldns.c
-  openbsd-compat/getrrsetbyname.c
   openbsd-compat/inet_aton.c
   openbsd-compat/inet_ntoa.c
   openbsd-compat/inet_ntop.c
@@ -248,12 +246,17 @@ set(openssh_openbsd_compat_src
   openbsd-compat/strcasestr.c
   openbsd-compat/strndup.c
   openbsd-compat/bsd-pselect.c
-  )
-if(UNIX)
+)
+if(WIN32)
+  list(APPEND openssh_openbsd_compat_src
+    openbsd-compat/getrrsetbyname-ldns.c
+    )
+elseif(UNIX)
   list(APPEND openssh_openbsd_compat_src
     openbsd-compat/arc4random_uniform.c
     openbsd-compat/pwcache.c
     openbsd-compat/bsd-getentropy.c
+    openbsd-compat/getrrsetbyname.c
     )
 endif()
 
