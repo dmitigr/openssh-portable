@@ -92,6 +92,14 @@ endif()
 # Sources
 # ------------------------------------------------------------------------------
 
+if(WIN32)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-windows.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/config.h @ONLY NEWLINE_STYLE UNIX)
+else()
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-default.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/config.h NEWLINE_STYLE UNIX)
+endif()
+
 # --------------------
 # openssh_posix_compat
 # --------------------
