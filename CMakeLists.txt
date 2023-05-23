@@ -16,6 +16,9 @@
 
 cmake_minimum_required(VERSION 3.22)
 cmake_policy(VERSION 3.22)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+  cmake_policy(SET CMP0135 NEW)
+endif()
 project(openssh_portable)
 
 if (NOT (UNIX OR WIN32))
@@ -49,46 +52,137 @@ set(CMAKE_C_STANDARD_REQUIRED On)
 # Dependencies
 # ------------------------------------------------------------------------------
 
+# Use the super build approach.
+include(ExternalProject)
+
+set(common_cmake_args
+  "-DBUILD_SHARED_LIBS=Off"
+)
+
+#
+# Zlib
+#
+set(zlib_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/zlib")
+set(zlib_patch_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/_patch/zlib")
+set(zlib_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/zlib")
+set(zlib_cmake_args ${common_cmake_args}
+  "-DCMAKE_INSTALL_PREFIX=${zlib_install_dir}"
+)
+ExternalProject_Add(zlib
+  URL https://zlib.net/zlib-1.2.13.tar.gz
+  URL_HASH SHA256=b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30
+  DOWNLOAD_NO_PROGRESS False
+  INACTIVITY_TIMEOUT 60
+  CMAKE_ARGS ${zlib_cmake_args}
+  DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+  SOURCE_DIR "${zlib_source_dir}"
+  INSTALL_DIR "${zlib_install_dir}"
+  BUILD_IN_SOURCE False
+  PATCH_COMMAND cmake -E copy_if_different
+  "${zlib_patch_dir}/CMakeLists-1.2.13.txt" "${zlib_source_dir}/CMakeLists.txt"
+)
 if(WIN32)
-  function(get_dependency name version extract_to_subdir)
-    set(dep_file "${CMAKE_CURRENT_BINARY_DIR}/${name}.zip")
-    set(dep_root "${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh")
-
-    if(EXISTS "${dep_file}")
-      return()
-    endif()
-
-    message(CHECK_START "Downloading and preparing ${name} version ${version}")
-
-    file(DOWNLOAD
-      "https://github.com/PowerShell/${name}/releases/download/${version}/${name}.zip"
-      "${dep_file}"
-      STATUS dep_download_status
-      )
-    list(GET dep_download_status 0 dep_download_status_err)
-    if(NOT dep_download_status_err EQUAL 0)
-      list(GET dep_download_status 1 dep_download_status_msg)
-      message(CHECK_FAIL "${dep_download_status_msg}")
-    endif()
-
-    if(extract_to_subdir)
-      set(dep_destination "${dep_root}/${name}")
-    else()
-      set(dep_destination "${dep_root}")
-    endif()
-    file(ARCHIVE_EXTRACT
-      INPUT "${dep_file}"
-      DESTINATION "${dep_destination}")
-
-    # file(REMOVE "${dep_file}")
-
-    message(CHECK_PASS "done")
-  endfunction()
-
-  get_dependency("libfido2" "1.13.0" True)
-  get_dependency("LibreSSL" "V3.7.2.0" False)
-  get_dependency("zlib" "V1.2.13" False)
+  set(zlib_static "${zlib_install_dir}/lib/zlibstatic.lib")
+else()
+  set(zlib_static "${zlib_install_dir}/lib/libz.a")
 endif()
+set(zlib_include_dir "${zlib_install_dir}/include")
+set(zlib_library_dir "${zlib_install_dir}/lib")
+
+#
+# LibreSSL
+#
+set(libressl_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libressl")
+set(libressl_cmake_args ${common_cmake_args}
+  "-DCMAKE_INSTALL_PREFIX=${libressl_install_dir}")
+ExternalProject_Add(libressl
+  URL https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.7.2.tar.gz
+  URL_HASH SHA256=b06aa538fefc9c6b33c4db4931a09a5f52d9d2357219afcbff7d93fe12ebf6f7
+  DOWNLOAD_NO_PROGRESS False
+  INACTIVITY_TIMEOUT 60
+  CMAKE_ARGS ${libressl_cmake_args}
+  DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libressl"
+  INSTALL_DIR "${libressl_install_dir}"
+  BUILD_IN_SOURCE False
+)
+if(WIN32)
+  set(ssl_crypto_static
+    "${libressl_install_dir}/lib/crypto-50.lib"
+    Bcrypt.lib # for BCryptGenRandom()
+  )
+  set(ssl_ssl_static "${libressl_install_dir}/lib/ssl-53.lib")
+  set(ssl_tls_static "${libressl_install_dir}/lib/tls-26.lib")
+else()
+  # FIXME
+  set(ssl_crypto_static "${libressl_install_dir}/lib/crypto-50.lib")
+  set(ssl_ssl_static "${libressl_install_dir}/lib/ssl-53.lib")
+  set(ssl_tls_static "${libressl_install_dir}/lib/tls-26.lib")
+endif()
+set(ssl_include_dir "${libressl_install_dir}/include")
+set(ssl_library_dir "${libressl_install_dir}/lib")
+
+#
+# libcbor
+#
+set(libcbor_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libcbor")
+set(libcbor_cmake_args ${common_cmake_args}
+  "-DCMAKE_INSTALL_PREFIX=${libcbor_install_dir}")
+ExternalProject_Add(libcbor
+  URL https://github.com/PJK/libcbor/archive/refs/tags/v0.10.2.tar.gz
+  URL_HASH SHA256=e75f712215d7b7e5c89ef322a09b701f7159f028b8b48978865725f00f79875b
+  DOWNLOAD_NO_PROGRESS False
+  INACTIVITY_TIMEOUT 60
+  CMAKE_ARGS ${libcbor_cmake_args}
+  DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libcbor"
+  INSTALL_DIR "${libcbor_install_dir}"
+  BUILD_IN_SOURCE False
+)
+if(WIN32)
+  set(libcbor_static "${libcbor_install_dir}/lib/cbor.lib")
+else()
+  # FIXME
+  set(libcbor_static "${libcbor_install_dir}/lib/cbor.lib")
+endif()
+set(libcbor_include_dir "${libcbor_install_dir}/include")
+set(libcbor_library_dir "${libcbor_install_dir}/lib")
+
+#
+# libfido2
+#
+set(libfido2_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libfido2")
+set(libfido2_cmake_args ${common_cmake_args}
+  "-DCMAKE_INSTALL_PREFIX=${libfido2_install_dir}"
+  "-DCBOR_INCLUDE_DIRS=${libcbor_include_dir}"
+  "-DCBOR_LIBRARY_DIRS=${libcbor_library_dir}"
+  "-DCRYPTO_INCLUDE_DIRS=${ssl_include_dir}"
+  "-DCRYPTO_LIBRARY_DIRS=${ssl_library_dir}"
+  "-DZLIB_INCLUDE_DIRS=${zlib_include_dir}"
+  "-DZLIB_LIBRARY_DIRS=${zlib_library_dir}"
+  "-DCBOR_LIBRARIES=${libcbor_static}"
+  "-DCRYPTO_LIBRARIES=${ssl_crypto_static}"
+  "-DZLIB_LIBRARIES=${zlib_static}"
+)
+ExternalProject_Add(libfido2
+  DEPENDS zlib libressl libcbor
+  URL https://developers.yubico.com/libfido2/Releases/libfido2-1.13.0.tar.gz
+  URL_HASH SHA256=51d43727e2a1c4544c7fd0ee47786f443e39f1388ada735a509ad4af0a2459ca
+  DOWNLOAD_NO_PROGRESS False
+  INACTIVITY_TIMEOUT 60
+  CMAKE_ARGS ${libfido2_cmake_args}
+  DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libfido2"
+  INSTALL_DIR "${libfido2_install_dir}"
+  BUILD_IN_SOURCE False
+)
+if(WIN32)
+  set(libfido2_static "${libfido2_install_dir}/lib/fido2_static.lib")
+else()
+  # FIXME
+  set(libfido2_static "${libfido2_install_dir}/lib/fido2_static.lib")
+endif()
+set(libfido2_include_dir "${libfido2_install_dir}/include")
 
 # ------------------------------------------------------------------------------
 # Sources
@@ -132,7 +226,7 @@ if(WIN32)
     contrib/win32/win32compat/win32_pty.c
     contrib/win32/win32compat/gss-sspi.c
     contrib/win32/openssh/sshTelemetry.c
-    )
+  )
 
   set(openssh_posix_compat_inc
     contrib/win32/win32compat/w32fd.h
@@ -184,7 +278,7 @@ if(WIN32)
     contrib/win32/openssh/MicrosoftTelemetry.h
     contrib/win32/openssh/sshTelemetry.h
     contrib/win32/openssh/sshTelemetryInternal.h
-    )
+  )
 
   set_source_files_properties(${openssh_posix_compat_src}
     PROPERTIES LANGUAGE "C")
@@ -265,14 +359,14 @@ set(openssh_openbsd_compat_src
 if(WIN32)
   list(APPEND openssh_openbsd_compat_src
     openbsd-compat/getrrsetbyname-ldns.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_openbsd_compat_src
     openbsd-compat/arc4random_uniform.c
     openbsd-compat/pwcache.c
     openbsd-compat/bsd-getentropy.c
     openbsd-compat/getrrsetbyname.c
-    )
+  )
 endif()
 
 set(openssh_openbsd_compat_inc
@@ -306,7 +400,7 @@ set(openssh_openbsd_compat_inc
   openbsd-compat/sys-queue.h
   openbsd-compat/sys-tree.h
   openbsd-compat/vis.h
-  )
+)
 
 set_source_files_properties(${openssh_openbsd_compat_src}
   PROPERTIES LANGUAGE "C")
@@ -382,17 +476,17 @@ set(openssh_libssh_src
   ssh-sk.c
   sshbuf-io.c
   cipher-chachapoly-libcrypto.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_libssh_src
     contrib/win32/win32compat/ttymodes_windows.c
     contrib/win32/win32compat/w32-sshfileperm.c
     contrib/win32/win32compat/spawn-ext.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_libssh_src
     umac128.c
-    )
+  )
 endif()
 if(OPENSSH_PORTABLE_WITH_OPENSSL)
   list(APPEND openssh_libssh_src
@@ -405,16 +499,16 @@ if(OPENSSH_PORTABLE_WITH_OPENSSL)
     ssh-ecdsa.c
     ssh-rsa.c
     digest-openssl.c
-    )
+  )
 else()
   list(APPEND openssh_libssh_src
     digest-libc.c
-    )
+  )
 endif()
 
 set(openssh_libssh_inc
   sshfileperm.h
-  )
+)
 
 set_source_files_properties(${openssh_libssh_src}
   PROPERTIES LANGUAGE "C")
@@ -467,7 +561,7 @@ set(openssh_sshd_src
   srclimit.c
   ssh-sk-client.c
   sshkey.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_sshd_src
     contrib/win32/win32compat/win32_groupaccess.c
@@ -475,7 +569,7 @@ if(WIN32)
     contrib/win32/win32compat/wmain_sshd.c
     contrib/win32/win32compat/w32-doexec.c
     contrib/win32/win32compat/win32-utf8.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_sshd_src
     groupaccess.c
@@ -486,7 +580,7 @@ elseif(UNIX)
     sftp-server.c
     sftp-realpath.c
     utf8.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_sshd_src}
@@ -500,16 +594,16 @@ set(openssh_keygen_src
   ssh-keygen.c
   sshsig.c
   ssh-sk-client.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_keygen_src
     contrib/win32/win32compat/wmain_common.c
     contrib/win32/win32compat/win32-utf8.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_keygen_src
     utf8.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_keygen_src}
@@ -525,16 +619,16 @@ set(openssh_scp_src
   sftp-common.c
   sftp-glob.c
   sftp-usergroup.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_scp_src
     contrib/win32/win32compat/wmain_common.c
     contrib/win32/win32compat/win32-utf8.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_scp_src
     utf8.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_scp_src}
@@ -548,15 +642,15 @@ set(openssh_sftp_server_src
   sftp-common.c
   sftp-server-main.c
   sftp-server.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_sftp_server_src
     contrib/win32/win32compat/wmain_common.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_sftp_server_src
     sftp-realpath.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_sftp_server_src}
@@ -573,16 +667,16 @@ set(openssh_sftp_src
   sftp-glob.c
   sftp.c
   sftp-usergroup.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_sftp_src
     contrib/win32/win32compat/wmain_common.c
     contrib/win32/win32compat/win32-utf8.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_sftp_src
     utf8.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_sftp_src}
@@ -595,16 +689,16 @@ set_source_files_properties(${openssh_sftp_src}
 set(openssh_ssh_add_src
   ssh-add.c
   ssh-sk-client.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_ssh_add_src
     contrib/win32/win32compat/wmain_common.c
     contrib/win32/win32compat/win32-utf8.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_ssh_add_src
     utf8.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_ssh_add_src}
@@ -617,25 +711,25 @@ set_source_files_properties(${openssh_ssh_add_src}
 set(openssh_ssh_agent_src
   ssh-pkcs11-client.c
   ssh-sk-client.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_ssh_agent_src
     contrib/win32/win32compat/ssh-agent/agent-main.c
     contrib/win32/win32compat/ssh-agent/agent.c
     contrib/win32/win32compat/ssh-agent/connection.c
     contrib/win32/win32compat/ssh-agent/keyagent-request.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_ssh_agent_src
     ssh-agent.c
-    )
+  )
 endif()
 
 if(WIN32)
   set(openssh_ssh_agent_inc
     contrib/win32/win32compat/ssh-agent/agent-request.h
     contrib/win32/win32compat/ssh-agent/agent.h
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_ssh_agent_src}
@@ -648,15 +742,15 @@ set_source_files_properties(${openssh_ssh_agent_src}
 set(openssh_ssh_keyscan_src
   ssh-keyscan.c
   ssh-sk-client.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_ssh_keyscan_src
     contrib/win32/win32compat/wmain_common.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_ssh_keyscan_src
     ssh-keyscan.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_ssh_keyscan_src}
@@ -670,11 +764,11 @@ set(openssh_ssh_pkcs11_helper_src
   ssh-pkcs11-helper.c
   ssh-pkcs11.c
   ssh-sk-client.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_ssh_pkcs11_helper_src
     contrib/win32/win32compat/wmain_common.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_ssh_pkcs11_helper_src}
@@ -688,7 +782,7 @@ if(WIN32)
   set(openssh_ssh_shellhost_src
     contrib/win32/win32compat/shell-host.c
     contrib/win32/win32compat/utf.c
-    )
+  )
   set_source_files_properties(${openssh_ssh_shellhost_src}
     PROPERTIES LANGUAGE "C")
 endif()
@@ -701,15 +795,15 @@ set(openssh_ssh_sk_helper_src
   ssh-sk-helper.c
   ssh-sk.c
   sk-usbhid.c
-  )
+)
 if(WIN32)
   list(APPEND openssh_ssh_sk_helper_src
     contrib/win32/win32compat/wmain_common.c
-    )
+  )
 elseif(UNIX)
   list(APPEND openssh_ssh_sk_helper_src
     ssh-sk-helper.c
-    )
+  )
 endif()
 
 set_source_files_properties(${openssh_ssh_sk_helper_src}
@@ -730,7 +824,7 @@ if(WIN32)
     LANGUAGE "C"
     LINKER_LANGUAGE "C"
     POSITION_INDEPENDENT_CODE True
-    )
+  )
   target_compile_definitions(openssh_posix_compat PUBLIC
     USE_MSCNG
     WIN32
@@ -740,7 +834,7 @@ if(WIN32)
     _CRT_DECLARE_NONSTDC_NAMES=0
     HAVE_SETENV   # FIX C4273
     HAVE_UNSETENV # FIX C4273
-    )
+  )
 endif()
 
 # ----------------------
@@ -749,22 +843,28 @@ endif()
 
 add_library(openssh_openbsd_compat
   ${openssh_openbsd_compat_inc} ${openssh_openbsd_compat_src})
+add_dependencies(openssh_openbsd_compat libressl)
 set_target_properties(openssh_openbsd_compat PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
   POSITION_INDEPENDENT_CODE True
-  )
+)
 
 target_include_directories(openssh_openbsd_compat PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/openbsd-compat)
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/openbsd-compat
+  ${ssl_include_dir}
+)
+target_link_libraries(openssh_openbsd_compat PUBLIC
+  ${ssl_crypto_static}
+)
 
 if(WIN32)
   target_include_directories(openssh_openbsd_compat PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_openbsd_compat PUBLIC
     USE_MSCNG
     WIN32
@@ -779,11 +879,11 @@ if(WIN32)
     HAVE_STRNLEN  # FIX C4273
     # HAVE_SETENV   # FIX C4273
     # HAVE_UNSETENV # FIX C4273
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_openbsd_compat PUBLIC
     crypt
-    )
+  )
 endif()
 
 # --------------
@@ -792,23 +892,30 @@ endif()
 
 add_library(openssh_libssh
   ${openssh_libssh_inc} ${openssh_libssh_src})
+add_dependencies(openssh_libssh libressl zlib)
 set_target_properties(openssh_libssh PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
   POSITION_INDEPENDENT_CODE True
-  )
+)
 
 target_include_directories(openssh_libssh PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  ${ssl_include_dir}
+  ${zlib_include_dir}
+)
+
+target_link_libraries(openssh_libssh PUBLIC
+  ${ssl_crypto_static}
+  ${zlib_static}
+)
 
 if(WIN32)
   target_include_directories(openssh_libssh PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/sdk
-    )
+  )
+
   target_compile_definitions(openssh_libssh PUBLIC
     USE_MSCNG
     WIN32
@@ -821,13 +928,11 @@ if(WIN32)
     _WINSOCK_DEPRECATED_NO_WARNINGS
 
     HAVE_STRNLEN  # FIX C4273
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_libssh PUBLIC
     crypt
-    crypto
-    z
-    )
+  )
 endif()
 
 # ------------
@@ -838,19 +943,23 @@ add_executable(openssh_sshd ${openssh_sshd_src})
 set_target_properties(openssh_sshd PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_sshd PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_sshd PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+  ${libfido2_static}
+)
 
 if(WIN32)
   target_include_directories(openssh_sshd PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/sdk
-    )
+  )
   target_compile_definitions(openssh_sshd PRIVATE
     USE_MSCNG
     WIN32
@@ -862,11 +971,11 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_sshd PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_sshd PRIVATE
     /entry:wmainCRTStartup
     /force:multiple
@@ -874,27 +983,20 @@ if(WIN32)
     /opt:icf
     /incremental:no
     /ignore:4099
-    )
+  )
   target_link_libraries(openssh_sshd PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/bin/x64/zlib.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/fido2.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_sshd PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_sshd PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # --------------
 # openssh_keygen
@@ -904,18 +1006,23 @@ add_executable(openssh_keygen ${openssh_keygen_src})
 set_target_properties(openssh_keygen PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_keygen PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  ${ssl_include_dir}
+)
+
+target_link_libraries(openssh_keygen PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_keygen PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_keygen PRIVATE
     # USE_MSCNG
     WIN32
@@ -927,35 +1034,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_keygen PRIVATE
     # /Gy
-    )
+  )
   target_link_options(openssh_keygen PRIVATE
     /entry:wmainCRTStartup
-    /force:multiple
-    /opt:ref
-    /opt:icf
-    /incremental:no
-    )
+    # /force:multiple
+    # /opt:ref
+    # /opt:icf
+    # /incremental:no
+  )
   target_link_libraries(openssh_keygen PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+    ${ssl_crypto_static}
+  )
 elseif(UNIX)
   target_link_libraries(openssh_keygen PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_keygen PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # -----------
 # openssh_scp
@@ -965,18 +1068,22 @@ add_executable(openssh_scp ${openssh_scp_src})
 set_target_properties(openssh_scp PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_scp PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_scp PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_scp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_scp PRIVATE
     # USE_MSCNG
     WIN32
@@ -988,36 +1095,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_scp PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_scp PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
-    )
+  )
   target_link_libraries(openssh_scp PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_scp PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_scp PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # -------------------
 # openssh_sftp_server
@@ -1027,18 +1129,23 @@ add_executable(openssh_sftp_server ${openssh_sftp_server_src})
 set_target_properties(openssh_sftp_server PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_sftp_server PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_sftp_server PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+  # openssh_posix_compat # FIXME: is it required on Linux?
+)
 
 if(WIN32)
   target_include_directories(openssh_sftp_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_sftp_server PRIVATE
     # USE_MSCNG
     WIN32
@@ -1050,36 +1157,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_sftp_server PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_sftp_server PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
-    )
+  )
   target_link_libraries(openssh_sftp_server PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_sftp_server PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_sftp_server PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # ------------
 # openssh_sftp
@@ -1089,18 +1191,22 @@ add_executable(openssh_sftp ${openssh_sftp_src})
 set_target_properties(openssh_sftp PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_sftp PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_sftp PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_sftp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_sftp PRIVATE
     # USE_MSCNG
     WIN32
@@ -1112,36 +1218,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_sftp PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_sftp PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
-    )
+  )
   target_link_libraries(openssh_sftp PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_sftp PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_sftp PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # ---------------
 # openssh_ssh_add
@@ -1151,18 +1252,22 @@ add_executable(openssh_ssh_add ${openssh_ssh_add_src})
 set_target_properties(openssh_ssh_add PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_ssh_add PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_ssh_add PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_ssh_add PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_ssh_add PRIVATE
     # USE_MSCNG
     WIN32
@@ -1174,36 +1279,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_ssh_add PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_ssh_add PRIVATE
     /entry:wmainCRTStartup
-    /force:multiple
-    /opt:ref
-    /opt:icf
-    /incremental:no
-    )
+    # /force:multiple
+    # /opt:ref
+    # /opt:icf
+    # /incremental:no
+  )
   target_link_libraries(openssh_ssh_add PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_add PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_ssh_add PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # -----------------
 # openssh_ssh_agent
@@ -1213,18 +1313,22 @@ add_executable(openssh_ssh_agent ${openssh_ssh_agent_src})
 set_target_properties(openssh_ssh_agent PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_ssh_agent PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_ssh_agent PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_ssh_agent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_ssh_agent PRIVATE
     # USE_MSCNG
     WIN32
@@ -1236,36 +1340,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_ssh_agent PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_ssh_agent PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
-    )
+  )
   target_link_libraries(openssh_ssh_agent PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_agent PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_ssh_agent PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # -------------------
 # openssh_ssh_keyscan
@@ -1275,18 +1374,22 @@ add_executable(openssh_ssh_keyscan ${openssh_ssh_keyscan_src})
 set_target_properties(openssh_ssh_keyscan PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_ssh_keyscan PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_ssh_keyscan PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_ssh_keyscan PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_ssh_keyscan PRIVATE
     # USE_MSCNG
     WIN32
@@ -1298,37 +1401,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_ssh_keyscan PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_ssh_keyscan PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
-    )
+  )
   target_link_libraries(openssh_ssh_keyscan PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/zlib/bin/x64/zlib.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keyscan PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_ssh_keyscan PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # -------------------------
 # openssh_ssh_pkcs11_helper
@@ -1338,18 +1435,22 @@ add_executable(openssh_ssh_pkcs11_helper ${openssh_ssh_pkcs11_helper_src})
 set_target_properties(openssh_ssh_pkcs11_helper PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_ssh_pkcs11_helper PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+)
+
+target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_ssh_pkcs11_helper PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
   target_compile_definitions(openssh_ssh_pkcs11_helper PRIVATE
     # USE_MSCNG
     WIN32
@@ -1361,36 +1462,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_ssh_pkcs11_helper PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_ssh_pkcs11_helper PRIVATE
     /entry:wmainCRTStartup
-    /force:multiple
-    /opt:ref
-    /opt:icf
-    /incremental:no
-    )
+    # /force:multiple
+    # /opt:ref
+    # /opt:icf
+    # /incremental:no
+  )
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()
 
 # ---------------------
 # openssh_ssh_shellhost
@@ -1401,17 +1497,14 @@ if(WIN32)
   set_target_properties(openssh_ssh_shellhost PROPERTIES
     LANGUAGE "C"
     LINKER_LANGUAGE "C"
-    )
+  )
 
   target_include_directories(openssh_ssh_shellhost PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-
-  target_include_directories(openssh_ssh_shellhost PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    )
+  )
+
   target_compile_definitions(openssh_ssh_shellhost PRIVATE
     # USE_MSCNG
     WIN32
@@ -1423,29 +1516,31 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
+
   target_compile_options(openssh_ssh_shellhost PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
+
   target_link_options(openssh_ssh_shellhost PRIVATE
     /entry:wmainCRTStartup
-    /force:multiple
-    /opt:ref
-    /opt:icf
-    /incremental:no
-    )
+    # /force:multiple
+    # /opt:ref
+    # /opt:icf
+    # /incremental:no
+  )
+
   target_link_libraries(openssh_ssh_shellhost PRIVATE
     openssh_libssh
     openssh_openbsd_compat
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
     Crypt32.lib
     Shlwapi.lib
-    )
+  )
 endif()
 
 # ---------------------
@@ -1456,19 +1551,25 @@ add_executable(openssh_ssh_sk_helper ${openssh_ssh_sk_helper_src})
 set_target_properties(openssh_ssh_sk_helper PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
-  )
+)
 
 target_include_directories(openssh_ssh_sk_helper PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  ${libfido2_include_dir}
+)
+
+target_link_libraries(openssh_ssh_sk_helper PRIVATE
+  ${libfido2_static}
+  ${libcbor_static}
+  openssh_libssh
+  openssh_openbsd_compat
+)
 
 if(WIN32)
   target_include_directories(openssh_ssh_sk_helper PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/sdk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/include
-    )
+  )
   target_compile_definitions(openssh_ssh_sk_helper PRIVATE
     # USE_MSCNG
     WIN32
@@ -1480,23 +1581,20 @@ if(WIN32)
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
-    )
+  )
   target_compile_options(openssh_ssh_sk_helper PRIVATE
     # /Gy
     # /Qspectre
-    )
+  )
   target_link_options(openssh_ssh_sk_helper PRIVATE
     /entry:wmainCRTStartup
     /force:multiple
     /opt:ref
     /opt:icf
     /incremental:no
-    )
+  )
   target_link_libraries(openssh_ssh_sk_helper PRIVATE
     openssh_posix_compat
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/LibreSSL/bin/desktop/x64/libcrypto.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/fido2.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh/libfido2/Win64/Release/static/cbor.lib
     Ws2_32.lib
     Userenv.lib
     Secur32.lib
@@ -1505,13 +1603,9 @@ if(WIN32)
     Shlwapi.lib
     hid.lib
     setupapi.lib
-    )
+  )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_sk_helper PRIVATE
     bsd # for freezero()
-    )
-endif()
-target_link_libraries(openssh_ssh_sk_helper PRIVATE
-  openssh_libssh
-  openssh_openbsd_compat
   )
+endif()

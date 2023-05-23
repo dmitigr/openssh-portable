@@ -1,3 +1,6 @@
+# Ignore dependencies
+contrib/deps/[[:alnum:]]*
+
 # Ignores in parent branch
 Makefile
 buildpkg.sh
