@@ -155,8 +155,11 @@ set(libfido2_cmake_prefix_path
   ${libcbor_install_dir}
   ${libressl_install_dir}
   ${zlib_install_dir})
-# Hack to pass CMAKE_PREFIX_PATH as a list (part 1/2)
+# Hack to pass CMAKE_PREFIX_PATH and others as lists (part 1/2)
 string(REPLACE ";" "|" libfido2_cmake_prefix_path "${libfido2_cmake_prefix_path}")
+if(WIN32)
+  string(REPLACE ";" "|" ssl_crypto_static_str "${ssl_crypto_static}")
+endif()
 set(libfido2_cmake_args ${common_cmake_args}
   "-DCMAKE_INSTALL_PREFIX=${libfido2_install_dir}"
   "-DCBOR_INCLUDE_DIRS=${libcbor_include_dir}"
@@ -166,7 +169,7 @@ set(libfido2_cmake_args ${common_cmake_args}
   "-DZLIB_INCLUDE_DIRS=${zlib_include_dir}"
   "-DZLIB_LIBRARY_DIRS=${zlib_library_dir}"
   "-DCBOR_LIBRARIES=${libcbor_static}"
-  "-DCRYPTO_LIBRARIES=${ssl_crypto_static}"
+  "-DCRYPTO_LIBRARIES=${ssl_crypto_static_str}"
   "-DZLIB_LIBRARIES=${zlib_static}"
 )
 if(UNIX)
@@ -181,7 +184,7 @@ ExternalProject_Add(libfido2
   URL_HASH SHA256=51d43727e2a1c4544c7fd0ee47786f443e39f1388ada735a509ad4af0a2459ca
   DOWNLOAD_NO_PROGRESS False
   INACTIVITY_TIMEOUT 60
-  LIST_SEPARATOR | # Hack to pass CMAKE_PREFIX_PATH as a list (part 2/2)
+  LIST_SEPARATOR | # Hack to pass CMAKE_PREFIX_PATH and others as lists (part 2/2)
   CMAKE_ARGS ${libfido2_cmake_args}
   DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libfido2"
@@ -332,6 +335,7 @@ set(openssh_openbsd_compat_src
   openbsd-compat/inet_ntoa.c
   openbsd-compat/inet_ntop.c
   openbsd-compat/kludge-fd_set.c
+  # Stuff from libressl-api-compat.c are already defined in ssl_crypto_static.
   # openbsd-compat/libressl-api-compat.c
   openbsd-compat/md5.c
   openbsd-compat/memmem.c
