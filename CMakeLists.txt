@@ -110,6 +110,7 @@ if(WIN32)
   set(ssl_crypto_static
     "${libressl_install_dir}/lib/crypto-50.lib"
     Bcrypt.lib # for BCryptGenRandom()
+    Ws2_32.lib
   )
   set(ssl_ssl_static "${libressl_install_dir}/lib/ssl-53.lib")
   set(ssl_tls_static "${libressl_install_dir}/lib/tls-26.lib")
@@ -825,6 +826,13 @@ if(WIN32)
     LINKER_LANGUAGE "C"
     POSITION_INDEPENDENT_CODE True
   )
+  target_link_libraries(openssh_posix_compat PUBLIC
+    Crypt32.lib
+    Shlwapi.lib
+    Secur32.lib
+    Userenv.lib
+    Ws2_32.lib
+  )
   target_compile_definitions(openssh_posix_compat PUBLIC
     USE_MSCNG
     WIN32
@@ -916,6 +924,10 @@ if(WIN32)
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
   )
 
+  target_link_libraries(openssh_libssh PUBLIC
+    Ws2_32.lib
+  )
+
   target_compile_definitions(openssh_libssh PUBLIC
     USE_MSCNG
     WIN32
@@ -986,11 +998,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_sshd PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_sshd PRIVATE
@@ -1047,11 +1054,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_keygen PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
     ${ssl_crypto_static}
   )
 elseif(UNIX)
@@ -1109,11 +1111,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_scp PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_scp PRIVATE
@@ -1171,11 +1168,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_sftp_server PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_sftp_server PRIVATE
@@ -1232,11 +1224,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_sftp PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_sftp PRIVATE
@@ -1293,11 +1280,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_ssh_add PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_add PRIVATE
@@ -1354,11 +1336,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_ssh_agent PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_agent PRIVATE
@@ -1415,11 +1392,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_ssh_keyscan PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keyscan PRIVATE
@@ -1476,11 +1448,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
@@ -1535,11 +1502,6 @@ if(WIN32)
     openssh_libssh
     openssh_openbsd_compat
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Crypt32.lib
-    Shlwapi.lib
   )
 endif()
 
@@ -1595,12 +1557,6 @@ if(WIN32)
   )
   target_link_libraries(openssh_ssh_sk_helper PRIVATE
     openssh_posix_compat
-    Ws2_32.lib
-    Userenv.lib
-    Secur32.lib
-    Bcrypt.lib
-    Crypt32.lib
-    Shlwapi.lib
     hid.lib
     setupapi.lib
   )
