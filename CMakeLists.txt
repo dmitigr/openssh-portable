@@ -115,10 +115,9 @@ if(WIN32)
   set(ssl_ssl_static "${libressl_install_dir}/lib/ssl-53.lib")
   set(ssl_tls_static "${libressl_install_dir}/lib/tls-26.lib")
 else()
-  # FIXME
-  set(ssl_crypto_static "${libressl_install_dir}/lib/crypto-50.lib")
-  set(ssl_ssl_static "${libressl_install_dir}/lib/ssl-53.lib")
-  set(ssl_tls_static "${libressl_install_dir}/lib/tls-26.lib")
+  set(ssl_crypto_static "${libressl_install_dir}/lib/libcrypto.a")
+  set(ssl_ssl_static "${libressl_install_dir}/lib/libssl.a")
+  set(ssl_tls_static "${libressl_install_dir}/lib/libtls.a")
 endif()
 set(ssl_include_dir "${libressl_install_dir}/include")
 set(ssl_library_dir "${libressl_install_dir}/lib")
@@ -143,8 +142,7 @@ ExternalProject_Add(libcbor
 if(WIN32)
   set(libcbor_static "${libcbor_install_dir}/lib/cbor.lib")
 else()
-  # FIXME
-  set(libcbor_static "${libcbor_install_dir}/lib/cbor.lib")
+  set(libcbor_static "${libcbor_install_dir}/lib/libcbor.a")
 endif()
 set(libcbor_include_dir "${libcbor_install_dir}/include")
 set(libcbor_library_dir "${libcbor_install_dir}/lib")
@@ -153,6 +151,12 @@ set(libcbor_library_dir "${libcbor_install_dir}/lib")
 # libfido2
 #
 set(libfido2_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libfido2")
+set(libfido2_cmake_prefix_path
+  ${libcbor_install_dir}
+  ${libressl_install_dir}
+  ${zlib_install_dir})
+# Hack to pass CMAKE_PREFIX_PATH as a list (part 1/2)
+string(REPLACE ";" "|" libfido2_cmake_prefix_path "${libfido2_cmake_prefix_path}")
 set(libfido2_cmake_args ${common_cmake_args}
   "-DCMAKE_INSTALL_PREFIX=${libfido2_install_dir}"
   "-DCBOR_INCLUDE_DIRS=${libcbor_include_dir}"
@@ -165,12 +169,19 @@ set(libfido2_cmake_args ${common_cmake_args}
   "-DCRYPTO_LIBRARIES=${ssl_crypto_static}"
   "-DZLIB_LIBRARIES=${zlib_static}"
 )
+if(UNIX)
+  list(APPEND libfido2_cmake_args
+    "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=True"
+    "-DCMAKE_PREFIX_PATH=${libfido2_cmake_prefix_path}"
+  )
+endif()
 ExternalProject_Add(libfido2
   DEPENDS zlib libressl libcbor
   URL https://developers.yubico.com/libfido2/Releases/libfido2-1.13.0.tar.gz
   URL_HASH SHA256=51d43727e2a1c4544c7fd0ee47786f443e39f1388ada735a509ad4af0a2459ca
   DOWNLOAD_NO_PROGRESS False
   INACTIVITY_TIMEOUT 60
+  LIST_SEPARATOR | # Hack to pass CMAKE_PREFIX_PATH as a list (part 2/2)
   CMAKE_ARGS ${libfido2_cmake_args}
   DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libfido2"
@@ -180,8 +191,7 @@ ExternalProject_Add(libfido2
 if(WIN32)
   set(libfido2_static "${libfido2_install_dir}/lib/fido2_static.lib")
 else()
-  # FIXME
-  set(libfido2_static "${libfido2_install_dir}/lib/fido2_static.lib")
+  set(libfido2_static "${libfido2_install_dir}/lib/libfido2.a")
 endif()
 set(libfido2_include_dir "${libfido2_install_dir}/include")
 
@@ -322,7 +332,7 @@ set(openssh_openbsd_compat_src
   openbsd-compat/inet_ntoa.c
   openbsd-compat/inet_ntop.c
   openbsd-compat/kludge-fd_set.c
-  openbsd-compat/libressl-api-compat.c
+  # openbsd-compat/libressl-api-compat.c
   openbsd-compat/md5.c
   openbsd-compat/memmem.c
   openbsd-compat/mktemp.c
@@ -941,10 +951,6 @@ if(WIN32)
 
     HAVE_STRNLEN  # FIX C4273
   )
-elseif(UNIX)
-  target_link_libraries(openssh_libssh PUBLIC
-    crypt
-  )
 endif()
 
 # ------------
@@ -952,6 +958,7 @@ endif()
 # ------------
 
 add_executable(openssh_sshd ${openssh_sshd_src})
+add_dependencies(openssh_sshd libfido2)
 set_target_properties(openssh_sshd PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
@@ -1135,7 +1142,6 @@ target_include_directories(openssh_sftp_server PRIVATE
 target_link_libraries(openssh_sftp_server PRIVATE
   openssh_libssh
   openssh_openbsd_compat
-  # openssh_posix_compat # FIXME: is it required on Linux?
 )
 
 if(WIN32)
@@ -1510,6 +1516,7 @@ endif()
 # ---------------------
 
 add_executable(openssh_ssh_sk_helper ${openssh_ssh_sk_helper_src})
+add_dependencies(openssh_ssh_sk_helper libfido2)
 set_target_properties(openssh_ssh_sk_helper PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
