@@ -601,27 +601,27 @@ endif()
 set_source_files_properties(${openssh_sshd_src}
   PROPERTIES LANGUAGE "C")
 
-# --------------
-# openssh_keygen
-# --------------
+# ------------------
+# openssh_ssh_keygen
+# ------------------
 
-set(openssh_keygen_src
+set(openssh_ssh_keygen_src
   ssh-keygen.c
   sshsig.c
   ssh-sk-client.c
 )
 if(WIN32)
-  list(APPEND openssh_keygen_src
+  list(APPEND openssh_ssh_keygen_src
     contrib/win32/win32compat/wmain_common.c
     contrib/win32/win32compat/win32-utf8.c
   )
 elseif(UNIX)
-  list(APPEND openssh_keygen_src
+  list(APPEND openssh_ssh_keygen_src
     utf8.c
   )
 endif()
 
-set_source_files_properties(${openssh_keygen_src}
+set_source_files_properties(${openssh_ssh_keygen_src}
   PROPERTIES LANGUAGE "C")
 
 # -----------
@@ -1016,32 +1016,32 @@ elseif(UNIX)
   )
 endif()
 
-# --------------
-# openssh_keygen
-# --------------
+# ------------------
+# openssh_ssh_keygen
+# ------------------
 
-add_executable(openssh_keygen ${openssh_keygen_src})
-set_target_properties(openssh_keygen PROPERTIES
+add_executable(openssh_ssh_keygen ${openssh_ssh_keygen_src})
+set_target_properties(openssh_ssh_keygen PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
 )
 
-target_include_directories(openssh_keygen PRIVATE
+target_include_directories(openssh_ssh_keygen PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${ssl_include_dir}
 )
 
-target_link_libraries(openssh_keygen PRIVATE
+target_link_libraries(openssh_ssh_keygen PRIVATE
   openssh_libssh
   openssh_openbsd_compat
 )
 
 if(WIN32)
-  target_include_directories(openssh_keygen PRIVATE
+  target_include_directories(openssh_ssh_keygen PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/openssh
     ${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/win32compat/inc
   )
-  target_compile_definitions(openssh_keygen PRIVATE
+  target_compile_definitions(openssh_ssh_keygen PRIVATE
     # USE_MSCNG
     WIN32
     _WIN32_WINNT=0x601
@@ -1053,22 +1053,22 @@ if(WIN32)
     _CRT_DECLARE_NONSTDC_NAMES=0
     _WINSOCK_DEPRECATED_NO_WARNINGS
   )
-  target_compile_options(openssh_keygen PRIVATE
+  target_compile_options(openssh_ssh_keygen PRIVATE
     # /Gy
   )
-  target_link_options(openssh_keygen PRIVATE
+  target_link_options(openssh_ssh_keygen PRIVATE
     /entry:wmainCRTStartup
     # /force:multiple
     # /opt:ref
     # /opt:icf
     # /incremental:no
   )
-  target_link_libraries(openssh_keygen PRIVATE
+  target_link_libraries(openssh_ssh_keygen PRIVATE
     openssh_posix_compat
     ${ssl_crypto_static}
   )
 elseif(UNIX)
-  target_link_libraries(openssh_keygen PRIVATE
+  target_link_libraries(openssh_ssh_keygen PRIVATE
     bsd # for freezero()
   )
 endif()
