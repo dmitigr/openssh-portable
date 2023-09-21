@@ -61,7 +61,7 @@ set(common_cmake_args
 )
 
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
-  list(append common_cmake_args "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
+  list(APPEND common_cmake_args "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
 
   string(REGEX MATCH "[dD][lL][lL]" dll "${CMAKE_MSVC_RUNTIME_LIBRARY}")
   if(dll)
