@@ -57,7 +57,19 @@ include(ExternalProject)
 
 set(common_cmake_args
   "-DBUILD_SHARED_LIBS=Off"
+  "-DMSVC=${MSVC}"
 )
+
+if(CMAKE_MSVC_RUNTIME_LIBRARY)
+  list(append common_cmake_args "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
+
+  string(REGEX MATCH "[dD][lL][lL]" dll "${CMAKE_MSVC_RUNTIME_LIBRARY}")
+  if(dll)
+    set(USE_STATIC_MSVC_RUNTIMES Off)
+  else()
+    set(USE_STATIC_MSVC_RUNTIMES On)
+  endif()
+endif()
 
 #
 # Zlib
@@ -66,6 +78,7 @@ set(zlib_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/zlib")
 set(zlib_patch_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/_patch/zlib")
 set(zlib_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/zlib")
 set(zlib_cmake_args ${common_cmake_args}
+  "-DCMAKE_PROJECT_INCLUDE_BEFORE=${CMAKE_CURRENT_SOURCE_DIR}/injbefore.cmake"
   "-DCMAKE_INSTALL_PREFIX=${zlib_install_dir}"
 )
 ExternalProject_Add(zlib
@@ -92,9 +105,13 @@ set(zlib_library_dir "${zlib_install_dir}/lib")
 #
 # LibreSSL
 #
+set(libressl_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libressl")
 set(libressl_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libressl")
 set(libressl_cmake_args ${common_cmake_args}
   "-DCMAKE_INSTALL_PREFIX=${libressl_install_dir}")
+if(DEFINED USE_STATIC_MSVC_RUNTIMES)
+  list(APPEND libressl_cmake_args "-DUSE_STATIC_MSVC_RUNTIMES=${USE_STATIC_MSVC_RUNTIMES}")
+endif()
 ExternalProject_Add(libressl
   URL https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.7.2.tar.gz
   URL_HASH SHA256=b06aa538fefc9c6b33c4db4931a09a5f52d9d2357219afcbff7d93fe12ebf6f7
@@ -102,7 +119,7 @@ ExternalProject_Add(libressl
   INACTIVITY_TIMEOUT 60
   CMAKE_ARGS ${libressl_cmake_args}
   DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libressl"
+  SOURCE_DIR "${libressl_source_dir}"
   INSTALL_DIR "${libressl_install_dir}"
   BUILD_IN_SOURCE False
 )
@@ -125,9 +142,12 @@ set(ssl_library_dir "${libressl_install_dir}/lib")
 #
 # libcbor
 #
+set(libcbor_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libcbor")
 set(libcbor_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libcbor")
 set(libcbor_cmake_args ${common_cmake_args}
-  "-DCMAKE_INSTALL_PREFIX=${libcbor_install_dir}")
+  "-DCMAKE_PROJECT_INCLUDE_BEFORE=${CMAKE_CURRENT_SOURCE_DIR}/injbefore.cmake"
+  "-DCMAKE_INSTALL_PREFIX=${libcbor_install_dir}"
+)
 ExternalProject_Add(libcbor
   URL https://github.com/PJK/libcbor/archive/refs/tags/v0.10.2.tar.gz
   URL_HASH SHA256=e75f712215d7b7e5c89ef322a09b701f7159f028b8b48978865725f00f79875b
@@ -135,7 +155,7 @@ ExternalProject_Add(libcbor
   INACTIVITY_TIMEOUT 60
   CMAKE_ARGS ${libcbor_cmake_args}
   DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libcbor"
+  SOURCE_DIR "${libcbor_source_dir}"
   INSTALL_DIR "${libcbor_install_dir}"
   BUILD_IN_SOURCE False
 )
@@ -150,6 +170,7 @@ set(libcbor_library_dir "${libcbor_install_dir}/lib")
 #
 # libfido2
 #
+set(libfido2_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libfido2")
 set(libfido2_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libfido2")
 set(libfido2_cmake_prefix_path
   ${libcbor_install_dir}
@@ -161,6 +182,7 @@ if(WIN32)
   string(REPLACE ";" "|" ssl_crypto_static_str "${ssl_crypto_static}")
 endif()
 set(libfido2_cmake_args ${common_cmake_args}
+  "-DCMAKE_PROJECT_INCLUDE_BEFORE=${CMAKE_CURRENT_SOURCE_DIR}/injbefore.cmake"
   "-DCMAKE_INSTALL_PREFIX=${libfido2_install_dir}"
   "-DCBOR_INCLUDE_DIRS=${libcbor_include_dir}"
   "-DCBOR_LIBRARY_DIRS=${libcbor_library_dir}"
@@ -187,7 +209,7 @@ ExternalProject_Add(libfido2
   LIST_SEPARATOR | # Hack to pass CMAKE_PREFIX_PATH and others as lists (part 2/2)
   CMAKE_ARGS ${libfido2_cmake_args}
   DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libfido2"
+  SOURCE_DIR "${libfido2_source_dir}"
   INSTALL_DIR "${libfido2_install_dir}"
   BUILD_IN_SOURCE False
 )
