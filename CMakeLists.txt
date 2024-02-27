@@ -82,7 +82,9 @@ set(zlib_cmake_args ${common_cmake_args}
   "-DCMAKE_INSTALL_PREFIX=${zlib_install_dir}"
 )
 ExternalProject_Add(zlib
-  URL https://zlib.net/fossils/zlib-1.2.13.tar.gz
+  URL
+  https://zlib.net/fossils/zlib-1.2.13.tar.gz
+  https://github.com/madler/zlib/releases/download/v1.2.13/zlib-1.2.13.tar.gz
   URL_HASH SHA256=b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30
   DOWNLOAD_NO_PROGRESS False
   INACTIVITY_TIMEOUT 60
@@ -113,7 +115,10 @@ if(DEFINED USE_STATIC_MSVC_RUNTIMES)
   list(APPEND libressl_cmake_args "-DUSE_STATIC_MSVC_RUNTIMES=${USE_STATIC_MSVC_RUNTIMES}")
 endif()
 ExternalProject_Add(libressl
-  URL https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.7.2.tar.gz
+  URL
+  https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.7.2.tar.gz
+  https://mirror.yandex.ru/pub/OpenBSD/LibreSSL/libressl-3.7.2.tar.gz
+  https://artfiles.org/openbsd/LibreSSL/libressl-3.7.2.tar.gz
   URL_HASH SHA256=b06aa538fefc9c6b33c4db4931a09a5f52d9d2357219afcbff7d93fe12ebf6f7
   DOWNLOAD_NO_PROGRESS False
   INACTIVITY_TIMEOUT 60
@@ -202,8 +207,11 @@ if(UNIX)
 endif()
 ExternalProject_Add(libfido2
   DEPENDS zlib libressl libcbor
-  URL https://developers.yubico.com/libfido2/Releases/libfido2-1.13.0.tar.gz
+  URL
+  https://developers.yubico.com/libfido2/Releases/libfido2-1.13.0.tar.gz
+  https://github.com/Yubico/libfido2/archive/refs/tags/1.13.0.tar.gz
   URL_HASH SHA256=51d43727e2a1c4544c7fd0ee47786f443e39f1388ada735a509ad4af0a2459ca
+  DOWNLOAD_NAME libfido2-1.13.0.tar.gz
   DOWNLOAD_NO_PROGRESS False
   INACTIVITY_TIMEOUT 60
   LIST_SEPARATOR | # Hack to pass CMAKE_PREFIX_PATH and others as lists (part 2/2)
