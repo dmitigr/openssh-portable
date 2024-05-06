@@ -58,6 +58,7 @@ include(ExternalProject)
 set(common_cmake_args
   "-DBUILD_SHARED_LIBS=Off"
   "-DMSVC=${MSVC}"
+  "-DCMAKE_INSTALL_LIBDIR=lib"
 )
 
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
@@ -110,7 +111,8 @@ set(zlib_library_dir "${zlib_install_dir}/lib")
 set(libressl_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/libressl")
 set(libressl_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/libressl")
 set(libressl_cmake_args ${common_cmake_args}
-  "-DCMAKE_INSTALL_PREFIX=${libressl_install_dir}")
+  "-DCMAKE_INSTALL_PREFIX=${libressl_install_dir}"
+)
 if(DEFINED USE_STATIC_MSVC_RUNTIMES)
   list(APPEND libressl_cmake_args "-DUSE_STATIC_MSVC_RUNTIMES=${USE_STATIC_MSVC_RUNTIMES}")
 endif()
@@ -183,9 +185,7 @@ set(libfido2_cmake_prefix_path
   ${zlib_install_dir})
 # Hack to pass CMAKE_PREFIX_PATH and others as lists (part 1/2)
 string(REPLACE ";" "|" libfido2_cmake_prefix_path "${libfido2_cmake_prefix_path}")
-if(WIN32)
-  string(REPLACE ";" "|" ssl_crypto_static_str "${ssl_crypto_static}")
-endif()
+string(REPLACE ";" "|" ssl_crypto_static_str "${ssl_crypto_static}")
 set(libfido2_cmake_args ${common_cmake_args}
   "-DCMAKE_PROJECT_INCLUDE_BEFORE=${CMAKE_CURRENT_SOURCE_DIR}/injbefore.cmake"
   "-DCMAKE_INSTALL_PREFIX=${libfido2_install_dir}"
@@ -198,6 +198,10 @@ set(libfido2_cmake_args ${common_cmake_args}
   "-DCBOR_LIBRARIES=${libcbor_static}"
   "-DCRYPTO_LIBRARIES=${ssl_crypto_static_str}"
   "-DZLIB_LIBRARIES=${zlib_static}"
+  "-DBUILD_TESTS=Off"
+  "-DBUILD_EXAMPLES=Off"
+  "-DBUILD_TOOLS=Off"
+  "-DBUILD_MANPAGES=Off"
 )
 if(UNIX)
   list(APPEND libfido2_cmake_args
@@ -961,6 +965,11 @@ target_link_libraries(openssh_libssh PUBLIC
   ${ssl_crypto_static}
   ${zlib_static}
 )
+if(UNIX)
+  target_link_libraries(openssh_libssh PUBLIC
+    pthread
+  )
+endif()
 
 if(WIN32)
   target_include_directories(openssh_libssh PUBLIC
@@ -1043,6 +1052,7 @@ if(WIN32)
 elseif(UNIX)
   target_link_libraries(openssh_sshd PRIVATE
     bsd # for freezero()
+    util
   )
 endif()
 
@@ -1100,6 +1110,8 @@ if(WIN32)
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keygen PRIVATE
     bsd # for freezero()
+    dl
+    resolv
   )
 endif()
 
@@ -1436,6 +1448,7 @@ if(WIN32)
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keyscan PRIVATE
     bsd # for freezero()
+    resolv
   )
 endif()
 
@@ -1492,6 +1505,7 @@ if(WIN32)
 elseif(UNIX)
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
     bsd # for freezero()
+    dl
   )
 endif()
 
@@ -1604,5 +1618,6 @@ if(WIN32)
 elseif(UNIX)
   target_link_libraries(openssh_ssh_sk_helper PRIVATE
     bsd # for freezero()
+    dl
   )
 endif()

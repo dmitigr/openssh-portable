@@ -299,7 +299,8 @@
 #define HAVE_CLOSEFROM 1
 
 /* Define to 1 if you have the `close_range' function. */
-#define HAVE_CLOSE_RANGE 1
+/* #define HAVE_CLOSE_RANGE 1 */
+#undef HAVE_CLOSE_RANGE
 
 /* Define if gai_strerror() returns const char * */
 #define HAVE_CONST_GAI_STRERROR_PROTO 1
