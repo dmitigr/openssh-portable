@@ -30,7 +30,7 @@ endif()
 # ------------------------------------------------------------------------------
 
 set(CMAKE_VERBOSE_MAKEFILE On CACHE BOOL
-  "Verbose output upon build?" FORCE)
+  "Verbose output upon build?")
 
 set(OPENSSH_PORTABLE_WITH_OPENSSL On CACHE BOOL
   "Build with OpenSSL?")
@@ -861,6 +861,11 @@ set_source_files_properties(${openssh_ssh_sk_helper_src}
 # ------------------------------------------------------------------------------
 # Targets
 # ------------------------------------------------------------------------------
+
+# Segmentation fault fix on redos/astra/altlinux
+if(NOT WIN32)
+  add_compile_definitions(HAVE_ARC4RANDOM=1)
+endif()
 
 # --------------------
 # openssh_posix_compat
