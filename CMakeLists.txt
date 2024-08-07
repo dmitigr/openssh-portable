@@ -1,6 +1,6 @@
 # -*- cmake -*-
 #
-# Copyright 2023 Dmitry Igrishin
+# Copyright 2024 Dmitry Igrishin
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -232,12 +232,46 @@ else()
 endif()
 set(libfido2_include_dir "${libfido2_install_dir}/include")
 
+#
+# ldns
+#
+if(APPLE)
+  set(ldns_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/contrib/deps/ldns")
+  set(ldns_install_dir "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/ldns")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ldns.sh.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ldns.sh"
+    @ONLY
+    NEWLINE_STYLE UNIX)
+  ExternalProject_Add(ldns
+    DEPENDS libressl
+    URL
+    https://nlnetlabs.nl/downloads/ldns/ldns-1.8.3.tar.gz
+    URL_HASH SHA256=c3f72dd1036b2907e3a56e6acf9dfb2e551256b3c1bbd9787942deeeb70e7860
+    DOWNLOAD_NO_PROGRESS False
+    INACTIVITY_TIMEOUT 60
+    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+    SOURCE_DIR "${ldns_source_dir}"
+    INSTALL_DIR "${ldns_install_dir}"
+    WORKING_DIRECTORY "${ldns_source_dir}"
+    CONFIGURE_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ldns.sh" "configure"
+    BUILD_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ldns.sh" "build"
+    INSTALL_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ldns.sh" "install"
+    BUILD_IN_SOURCE False
+  )
+  set(ldns_static "${ldns_install_dir}/lib/libldns.a")
+  set(ldns_include_dir "${ldns_install_dir}/include")
+  set(ldns_library_dir "${ldns_install_dir}/lib")
+endif()
+
 # ------------------------------------------------------------------------------
 # Sources
 # ------------------------------------------------------------------------------
 
 if(WIN32)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-windows.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/config.h @ONLY NEWLINE_STYLE UNIX)
+elseif(APPLE)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-macos.h.in
     ${CMAKE_CURRENT_SOURCE_DIR}/config.h @ONLY NEWLINE_STYLE UNIX)
 else()
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-default.h.in
@@ -414,8 +448,16 @@ elseif(UNIX)
     openbsd-compat/arc4random_uniform.c
     openbsd-compat/pwcache.c
     openbsd-compat/bsd-getentropy.c
-    openbsd-compat/getrrsetbyname.c
   )
+  if(APPLE)
+    list(APPEND openssh_openbsd_compat_src
+      openbsd-compat/getrrsetbyname-ldns.c
+    )
+  else()
+    list(APPEND openssh_openbsd_compat_src
+      openbsd-compat/getrrsetbyname.c
+    )
+  endif()
 endif()
 
 set(openssh_openbsd_compat_inc
@@ -862,9 +904,8 @@ set_source_files_properties(${openssh_ssh_sk_helper_src}
 # Targets
 # ------------------------------------------------------------------------------
 
-# Segmentation fault fix on redos/astra/altlinux
-if(NOT WIN32)
-  add_compile_definitions(HAVE_ARC4RANDOM=1)
+if(NOT APPLE)
+  add_compile_definitions(USE_BTMP=1)
 endif()
 
 # --------------------
@@ -905,6 +946,9 @@ endif()
 add_library(openssh_openbsd_compat
   ${openssh_openbsd_compat_inc} ${openssh_openbsd_compat_src})
 add_dependencies(openssh_openbsd_compat libressl)
+if(APPLE)
+  add_dependencies(openssh_openbsd_compat ldns)
+endif()
 set_target_properties(openssh_openbsd_compat PROPERTIES
   LANGUAGE "C"
   LINKER_LANGUAGE "C"
@@ -942,9 +986,12 @@ if(WIN32)
     # HAVE_UNSETENV # FIX C4273
   )
 elseif(UNIX)
-  target_link_libraries(openssh_openbsd_compat PUBLIC
-    crypt
-  )
+  if(APPLE)
+    target_include_directories(openssh_openbsd_compat PUBLIC ${ldns_include_dir})
+    target_link_libraries(openssh_openbsd_compat PUBLIC ${ldns_static})
+  else()
+    target_link_libraries(openssh_openbsd_compat PUBLIC crypt)
+  endif()
 endif()
 
 # --------------
@@ -969,6 +1016,7 @@ target_include_directories(openssh_libssh PUBLIC
 target_link_libraries(openssh_libssh PUBLIC
   ${ssl_crypto_static}
   ${zlib_static}
+  openssh_openbsd_compat
 )
 if(UNIX)
   target_link_libraries(openssh_libssh PUBLIC
@@ -1018,7 +1066,6 @@ target_include_directories(openssh_sshd PRIVATE
 
 target_link_libraries(openssh_sshd PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
   ${libfido2_static}
 )
 
@@ -1056,9 +1103,13 @@ if(WIN32)
   )
 elseif(UNIX)
   target_link_libraries(openssh_sshd PRIVATE
-    bsd # for freezero()
     util
   )
+  if(NOT APPLE)
+    target_link_libraries(openssh_sshd PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # ------------------
@@ -1078,7 +1129,6 @@ target_include_directories(openssh_ssh_keygen PRIVATE
 
 target_link_libraries(openssh_ssh_keygen PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1114,10 +1164,14 @@ if(WIN32)
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keygen PRIVATE
-    bsd # for freezero()
     dl
     resolv
   )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_keygen PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # -----------
@@ -1136,7 +1190,6 @@ target_include_directories(openssh_scp PRIVATE
 
 target_link_libraries(openssh_scp PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1171,9 +1224,11 @@ if(WIN32)
     openssh_posix_compat
   )
 elseif(UNIX)
-  target_link_libraries(openssh_scp PRIVATE
-    bsd # for freezero()
-  )
+  if(NOT APPLE)
+    target_link_libraries(openssh_scp PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # -------------------
@@ -1192,7 +1247,6 @@ target_include_directories(openssh_sftp_server PRIVATE
 
 target_link_libraries(openssh_sftp_server PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1227,9 +1281,11 @@ if(WIN32)
     openssh_posix_compat
   )
 elseif(UNIX)
-  target_link_libraries(openssh_sftp_server PRIVATE
-    bsd # for freezero()
-  )
+  if(NOT APPLE)
+    target_link_libraries(openssh_sftp_server PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # ------------
@@ -1248,7 +1304,6 @@ target_include_directories(openssh_sftp PRIVATE
 
 target_link_libraries(openssh_sftp PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1283,9 +1338,11 @@ if(WIN32)
     openssh_posix_compat
   )
 elseif(UNIX)
-  target_link_libraries(openssh_sftp PRIVATE
-    bsd # for freezero()
-  )
+  if(NOT APPLE)
+    target_link_libraries(openssh_sftp PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # ---------------
@@ -1304,7 +1361,6 @@ target_include_directories(openssh_ssh_add PRIVATE
 
 target_link_libraries(openssh_ssh_add PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1339,9 +1395,11 @@ if(WIN32)
     openssh_posix_compat
   )
 elseif(UNIX)
-  target_link_libraries(openssh_ssh_add PRIVATE
-    bsd # for freezero()
-  )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_add PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # -----------------
@@ -1360,7 +1418,6 @@ target_include_directories(openssh_ssh_agent PRIVATE
 
 target_link_libraries(openssh_ssh_agent PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1395,9 +1452,11 @@ if(WIN32)
     openssh_posix_compat
   )
 elseif(UNIX)
-  target_link_libraries(openssh_ssh_agent PRIVATE
-    bsd # for freezero()
-  )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_agent PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # -------------------
@@ -1416,7 +1475,6 @@ target_include_directories(openssh_ssh_keyscan PRIVATE
 
 target_link_libraries(openssh_ssh_keyscan PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1452,9 +1510,13 @@ if(WIN32)
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_keyscan PRIVATE
-    bsd # for freezero()
     resolv
   )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_keyscan PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # -------------------------
@@ -1473,7 +1535,6 @@ target_include_directories(openssh_ssh_pkcs11_helper PRIVATE
 
 target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1509,9 +1570,13 @@ if(WIN32)
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
-    bsd # for freezero()
     dl
   )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_pkcs11_helper PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
 
 # ---------------------
@@ -1559,7 +1624,6 @@ if(WIN32)
 
   target_link_libraries(openssh_ssh_shellhost PRIVATE
     openssh_libssh
-    openssh_openbsd_compat
     openssh_posix_compat
   )
 endif()
@@ -1584,7 +1648,6 @@ target_link_libraries(openssh_ssh_sk_helper PRIVATE
   ${libfido2_static}
   ${libcbor_static}
   openssh_libssh
-  openssh_openbsd_compat
 )
 
 if(WIN32)
@@ -1622,7 +1685,11 @@ if(WIN32)
   )
 elseif(UNIX)
   target_link_libraries(openssh_ssh_sk_helper PRIVATE
-    bsd # for freezero()
     dl
   )
+  if(NOT APPLE)
+    target_link_libraries(openssh_ssh_sk_helper PRIVATE
+      bsd # for freezero()
+    )
+  endif()
 endif()
