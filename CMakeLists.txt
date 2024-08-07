@@ -904,11 +904,6 @@ set_source_files_properties(${openssh_ssh_sk_helper_src}
 # Targets
 # ------------------------------------------------------------------------------
 
-# Segmentation fault fix on redos/astra/altlinux
-if(NOT WIN32)
-  add_compile_definitions(HAVE_ARC4RANDOM=1)
-endif()
-
 if(NOT APPLE)
   add_compile_definitions(USE_BTMP=1)
 endif()
