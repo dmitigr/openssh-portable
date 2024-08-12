@@ -1132,7 +1132,7 @@
 #define HAVE_REALLOC 1
 
 /* Define to 1 if you have the `reallocarray' function. */
-#define HAVE_REALLOCARRAY 1
+/* #undef HAVE_REALLOCARRAY */
 
 /* Define to 1 if you have the `realpath' function. */
 #define HAVE_REALPATH 1
