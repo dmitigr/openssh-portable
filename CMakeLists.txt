@@ -904,6 +904,12 @@ set_source_files_properties(${openssh_ssh_sk_helper_src}
 # Targets
 # ------------------------------------------------------------------------------
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  add_compile_options(
+    -Wno-error=incompatible-pointer-types
+    -Wno-error=implicit-function-declaration)
+endif()
+
 if(NOT APPLE)
   add_compile_definitions(USE_BTMP=1)
 endif()
