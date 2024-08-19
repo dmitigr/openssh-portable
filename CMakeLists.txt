@@ -910,10 +910,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     -Wno-error=implicit-function-declaration)
 endif()
 
-if(NOT APPLE)
-  add_compile_definitions(USE_BTMP=1)
-endif()
-
 # --------------------
 # openssh_posix_compat
 # --------------------
