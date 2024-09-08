@@ -904,7 +904,9 @@ set_source_files_properties(${openssh_ssh_sk_helper_src}
 # Targets
 # ------------------------------------------------------------------------------
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
+    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
   add_compile_options(
     -Wno-error=incompatible-pointer-types
     -Wno-error=implicit-function-declaration)
